@@ -81,29 +81,100 @@ class CityWarehouse:
                 values,
             )
 
-    def list_metrics(self, limit: int = 50) -> list[dict]:
+    def list_metrics(
+        self,
+        limit: int = 50,
+        region: str | None = None,
+        country: str | None = None,
+        min_remote_work_score: float | None = None,
+    ) -> list[dict]:
+        filters: list[str] = []
+        params: list[str | float | int] = []
+        if region:
+            filters.append("LOWER(region) = LOWER(?)")
+            params.append(region)
+        if country:
+            filters.append("LOWER(country) = LOWER(?)")
+            params.append(country)
+        if min_remote_work_score is not None:
+            filters.append("remote_work_score >= ?")
+            params.append(min_remote_work_score)
+        where_clause = f"WHERE {' AND '.join(filters)}" if filters else ""
+        params.append(limit)
+
         with self.connect() as connection:
             rows = connection.execute(
-                """
+                f"""
                 SELECT *
                 FROM city_metrics
+                {where_clause}
                 ORDER BY remote_work_score DESC, startup_score DESC
                 LIMIT ?
                 """,
-                (limit,),
+                params,
             ).fetchall()
         return [dict(row) for row in rows]
 
-    def list_recommendations(self, limit: int = 25) -> list[dict]:
+    def list_recommendations(
+        self,
+        limit: int = 25,
+        region: str | None = None,
+        country: str | None = None,
+        min_overall_score: float | None = None,
+    ) -> list[dict]:
+        filters: list[str] = []
+        params: list[str | float | int] = []
+        join_clause = ""
+        if region:
+            join_clause = """
+                JOIN city_metrics metrics
+                    ON metrics.city = recommendations.city
+                    AND metrics.country = recommendations.country
+            """
+            filters.append("LOWER(metrics.region) = LOWER(?)")
+            params.append(region)
+        if country:
+            filters.append("LOWER(recommendations.country) = LOWER(?)")
+            params.append(country)
+        if min_overall_score is not None:
+            filters.append("recommendations.overall_score >= ?")
+            params.append(min_overall_score)
+        where_clause = f"WHERE {' AND '.join(filters)}" if filters else ""
+        params.append(limit)
+
+        with self.connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT recommendations.*
+                FROM city_recommendations recommendations
+                {join_clause}
+                {where_clause}
+                ORDER BY recommendations.overall_score DESC
+                LIMIT ?
+                """,
+                params,
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def region_summary(self) -> list[dict]:
         with self.connect() as connection:
             rows = connection.execute(
                 """
-                SELECT *
-                FROM city_recommendations
-                ORDER BY overall_score DESC
-                LIMIT ?
-                """,
-                (limit,),
+                SELECT
+                    metrics.region,
+                    COUNT(*) AS city_count,
+                    ROUND(AVG(metrics.cost_of_living_index), 2) AS avg_cost_of_living_index,
+                    ROUND(AVG(metrics.quality_of_life_index), 2) AS avg_quality_of_life_index,
+                    ROUND(AVG(metrics.internet_speed_mbps), 2) AS avg_internet_speed_mbps,
+                    ROUND(AVG(metrics.remote_work_score), 2) AS avg_remote_work_score,
+                    ROUND(AVG(recommendations.overall_score), 2) AS avg_overall_score
+                FROM city_metrics metrics
+                JOIN city_recommendations recommendations
+                    ON recommendations.city = metrics.city
+                    AND recommendations.country = metrics.country
+                GROUP BY metrics.region
+                ORDER BY avg_overall_score DESC
+                """
             ).fetchall()
         return [dict(row) for row in rows]
 

@@ -45,16 +45,38 @@ def trigger_pipeline(
 @app.get("/cities")
 def list_cities(
     limit: int = Query(default=50, ge=1, le=1000),
+    region: str | None = None,
+    country: str | None = None,
+    min_remote_work_score: float | None = Query(default=None, ge=0, le=100),
     warehouse: CityWarehouse = Depends(get_warehouse),
 ) -> list[dict]:
     warehouse.initialize()
-    return warehouse.list_metrics(limit=limit)
+    return warehouse.list_metrics(
+        limit=limit,
+        region=region,
+        country=country,
+        min_remote_work_score=min_remote_work_score,
+    )
 
 
 @app.get("/recommendations")
 def list_recommendations(
     limit: int = Query(default=25, ge=1, le=1000),
+    region: str | None = None,
+    country: str | None = None,
+    min_overall_score: float | None = Query(default=None, ge=0, le=100),
     warehouse: CityWarehouse = Depends(get_warehouse),
 ) -> list[dict]:
     warehouse.initialize()
-    return warehouse.list_recommendations(limit=limit)
+    return warehouse.list_recommendations(
+        limit=limit,
+        region=region,
+        country=country,
+        min_overall_score=min_overall_score,
+    )
+
+
+@app.get("/analytics/regions")
+def region_summary(warehouse: CityWarehouse = Depends(get_warehouse)) -> list[dict]:
+    warehouse.initialize()
+    return warehouse.region_summary()

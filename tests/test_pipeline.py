@@ -27,3 +27,24 @@ def test_run_pipeline_loads_and_exports(tmp_path):
     assert len(warehouse.list_metrics(limit=20)) == 12
     assert exports["city_metrics"].exists()
     assert exports["city_recommendations"].exists()
+
+
+def test_warehouse_filters_and_region_summary(tmp_path):
+    warehouse = CityWarehouse(tmp_path / "cities.sqlite3")
+    run_pipeline(
+        warehouse=warehouse,
+        city_limit=40,
+        export_dir=tmp_path / "exports",
+    )
+
+    oceania_cities = warehouse.list_metrics(region="Oceania", limit=50)
+    australian_recommendations = warehouse.list_recommendations(country="Australia", limit=50)
+    strong_recommendations = warehouse.list_recommendations(min_overall_score=60, limit=50)
+    summary = warehouse.region_summary()
+
+    assert oceania_cities
+    assert all(city["region"] == "Oceania" for city in oceania_cities)
+    assert australian_recommendations
+    assert all(row["country"] == "Australia" for row in australian_recommendations)
+    assert all(row["overall_score"] >= 60 for row in strong_recommendations)
+    assert {row["region"] for row in summary}

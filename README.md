@@ -34,7 +34,18 @@ Open:
 - `http://127.0.0.1:8000/docs`
 - `POST http://127.0.0.1:8000/pipeline/run?limit=220`
 - `GET http://127.0.0.1:8000/recommendations`
+- `GET http://127.0.0.1:8000/recommendations?region=Europe&min_overall_score=60`
 - `GET http://127.0.0.1:8000/cities`
+- `GET http://127.0.0.1:8000/analytics/regions`
+
+Or use the Makefile:
+
+```bash
+make install
+make test
+make run
+make api
+```
 
 ## Project Structure
 
@@ -66,9 +77,15 @@ Useful visuals:
 - Region-level average `remote_work_score`
 - Cost-of-living vs quality-of-life matrix
 
+See `docs/powerbi_model.md` for join keys and starter DAX measures.
+
+## Snowflake
+
+The starter Snowflake warehouse schema lives in `sql/snowflake_schema.sql`. It mirrors the local SQLite tables and includes a `region_summary` view for analytics workloads.
+
 ## Next Upgrades
 
 - Replace `collect_demo_metrics` with real source adapters.
-- Add dbt or SQL models for dimensional marts.
-- Add a Snowflake warehouse implementation beside `CityWarehouse`.
+- Add dbt models for dimensional marts.
+- Add a Snowflake loader implementation beside `CityWarehouse`.
 - Schedule the CLI with Cloud Run Jobs, Cloud Scheduler, or GitHub Actions.
