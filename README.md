@@ -29,6 +29,12 @@ Start the API:
 uvicorn app.main:app --reload
 ```
 
+Or run it in Docker:
+
+```bash
+docker compose up --build
+```
+
 Open:
 
 - `http://127.0.0.1:8000/docs`

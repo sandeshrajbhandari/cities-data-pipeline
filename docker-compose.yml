@@ -1,0 +1,12 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_PATH: /app/data/cities.sqlite3
+      EXPORT_DIR: /app/exports
+      DEFAULT_CITY_LIMIT: 220
+    volumes:
+      - ./data:/app/data
+      - ./exports:/app/exports
