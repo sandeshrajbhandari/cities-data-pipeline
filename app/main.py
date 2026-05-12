@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import Depends, FastAPI, Query
+from fastapi.responses import HTMLResponse
 
 from app.pipeline.config import Settings, get_settings
 from app.pipeline.runner import run_pipeline
@@ -21,6 +24,13 @@ app = FastAPI(
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/", response_class=HTMLResponse)
+@app.get("/dashboard", response_class=HTMLResponse)
+def dashboard() -> HTMLResponse:
+    html = (Path(__file__).parent / "templates" / "dashboard.html").read_text(encoding="utf-8")
+    return HTMLResponse(html)
 
 
 @app.post("/pipeline/run")
