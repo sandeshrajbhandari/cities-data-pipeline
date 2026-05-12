@@ -38,11 +38,14 @@ docker compose up --build
 Open:
 
 - `http://127.0.0.1:8000/docs`
+- `http://127.0.0.1:8000/dashboard`
 - `POST http://127.0.0.1:8000/pipeline/run?limit=220`
 - `GET http://127.0.0.1:8000/recommendations`
 - `GET http://127.0.0.1:8000/recommendations?region=Europe&min_overall_score=60`
 - `GET http://127.0.0.1:8000/cities`
 - `GET http://127.0.0.1:8000/analytics/regions`
+
+For portfolio screenshots, run the API and capture `/dashboard`. A sample browser capture is stored at `screenshots/dashboard-localhost.png`.
 
 Or use the Makefile:
 

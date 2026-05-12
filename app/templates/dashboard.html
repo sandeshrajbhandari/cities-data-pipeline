@@ -288,10 +288,21 @@
     <script>
       const format = (value) => Number(value).toFixed(1);
 
+      const apiBase =
+        window.location.protocol === "file:" ? "http://127.0.0.1:8000" : window.location.origin;
+
+      async function api(path, options) {
+        const response = await fetch(`${apiBase}${path}`, options);
+        if (!response.ok) {
+          throw new Error(`Request failed: ${response.status} ${response.statusText}`);
+        }
+        return response.json();
+      }
+
       async function ensureData() {
-        const existing = await fetch("/recommendations?limit=1").then((response) => response.json());
+        const existing = await api("/recommendations?limit=1");
         if (!existing.length) {
-          await fetch("/pipeline/run?limit=220", { method: "POST" });
+          await api("/pipeline/run?limit=220", { method: "POST" });
         }
       }
 
@@ -332,9 +343,9 @@
       async function loadDashboard() {
         await ensureData();
         const [recommendations, cities, regions] = await Promise.all([
-          fetch("/recommendations?limit=12").then((response) => response.json()),
-          fetch("/cities?limit=80").then((response) => response.json()),
-          fetch("/analytics/regions").then((response) => response.json()),
+          api("/recommendations?limit=12"),
+          api("/cities?limit=1000"),
+          api("/analytics/regions"),
         ]);
 
         document.getElementById("city-count").textContent = cities.length;
@@ -370,10 +381,16 @@
           "remote_work_score",
           "linear-gradient(90deg, var(--green), var(--amber))",
         );
-        renderScatter(cities);
+        renderScatter(cities.slice(0, 80));
       }
 
-      loadDashboard();
+      loadDashboard().catch((error) => {
+        console.error(error);
+        document.getElementById("city-count").textContent = "API";
+        document.getElementById("top-city").textContent = "offline";
+        document.getElementById("avg-remote").textContent = "--";
+        document.getElementById("best-region").textContent = "--";
+      });
     </script>
   </body>
 </html>
