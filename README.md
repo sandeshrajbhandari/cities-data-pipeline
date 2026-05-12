@@ -2,7 +2,7 @@
 
 FastAPI-based data pipeline for collecting, scoring, storing, and exporting cost-of-living and quality-of-life metrics for startup and remote-work cities.
 
-This repo is an MVP version of the resume project: it ships with a deterministic demo collector, a local SQLite warehouse, recommendation scoring, CSV exports for Power BI, and API endpoints to trigger and inspect the pipeline. The collector is intentionally swappable so real sources such as Numbeo-style pages, public datasets, or vendor APIs can replace the demo metrics later.
+This repo is an MVP version of the resume project: it ships with a deterministic demo collector, a Teleport public API collector, a local SQLite warehouse, recommendation scoring, CSV exports for Power BI, and API endpoints to trigger and inspect the pipeline.
 
 ## What It Does
 
@@ -23,6 +23,12 @@ cp .env.example .env
 python -m app.cli
 ```
 
+Run with live Teleport public urban-area scores:
+
+```bash
+python -m app.cli --source teleport --limit 50
+```
+
 Start the API:
 
 ```bash
@@ -40,6 +46,7 @@ Open:
 - `http://127.0.0.1:8000/docs`
 - `http://127.0.0.1:8000/dashboard`
 - `POST http://127.0.0.1:8000/pipeline/run?limit=220`
+- `POST http://127.0.0.1:8000/pipeline/run?source=teleport&limit=50`
 - `GET http://127.0.0.1:8000/recommendations`
 - `GET http://127.0.0.1:8000/recommendations?region=Europe&min_overall_score=60`
 - `GET http://127.0.0.1:8000/cities`
@@ -92,9 +99,18 @@ See `docs/powerbi_model.md` for join keys and starter DAX measures.
 
 The starter Snowflake warehouse schema lives in `sql/snowflake_schema.sql`. It mirrors the local SQLite tables and includes a `region_summary` view for analytics workloads.
 
+## Live Data Source
+
+The `teleport` source uses the public Teleport urban areas API:
+
+- `https://api.teleport.org/api/urban_areas/`
+- `https://api.teleport.org/api/urban_areas/slug:{slug}/scores/`
+
+Teleport exposes quality-of-life categories such as housing, cost of living, startups, venture capital, safety, healthcare, environmental quality, economy, and internet access. The pipeline maps those scores into the existing warehouse fields and marks live rows with `source = teleport_api`.
+
 ## Next Upgrades
 
-- Replace `collect_demo_metrics` with real source adapters.
+- Add more real source adapters for population, country metadata, and live internet speed.
 - Add dbt models for dimensional marts.
 - Add a Snowflake loader implementation beside `CityWarehouse`.
 - Schedule the CLI with Cloud Run Jobs, Cloud Scheduler, or GitHub Actions.

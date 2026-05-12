@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     database_path: Path = Path("data/cities.sqlite3")
     export_dir: Path = Path("exports")
     default_city_limit: int = 220
+    default_data_source: str = "demo"
+    teleport_api_base_url: str = "https://api.teleport.org/api"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

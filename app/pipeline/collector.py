@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from datetime import UTC, datetime
+from typing import Any
 
 from bs4 import BeautifulSoup
 import httpx
@@ -65,6 +66,153 @@ def collect_demo_metrics(cities: list[CityProfile]) -> list[CityMetric]:
                 scraped_at=scraped_at,
             )
         )
+
+    return metrics
+
+
+def _score_map(categories: list[dict[str, Any]]) -> dict[str, float]:
+    return {
+        category["name"]: float(category.get("score_out_of_10") or 0)
+        for category in categories
+        if category.get("name")
+    }
+
+
+def _score(scores: dict[str, float], name: str, default: float = 5) -> float:
+    return scores.get(name, default)
+
+
+def _category_to_positive_index(score_out_of_10: float, high: float = 100) -> float:
+    return round(max(0, min(high, score_out_of_10 * (high / 10))), 2)
+
+
+def _category_to_cost_index(score_out_of_10: float) -> float:
+    return round(max(0, min(130, 130 - (score_out_of_10 * 10))), 2)
+
+
+def _city_slug_from_href(href: str) -> str:
+    marker = "/slug:"
+    if marker in href:
+        return href.split(marker, 1)[1].strip("/").split("/", 1)[0]
+    return href.rstrip("/").rsplit("/", 1)[-1]
+
+
+def _fallback_region(country: str) -> str:
+    regions = {
+        "Australia": "Oceania",
+        "New Zealand": "Oceania",
+        "United States": "North America",
+        "Canada": "North America",
+        "Mexico": "North America",
+        "Brazil": "South America",
+        "Argentina": "South America",
+        "Chile": "South America",
+        "Colombia": "South America",
+        "Peru": "South America",
+        "United Kingdom": "Europe",
+        "Germany": "Europe",
+        "France": "Europe",
+        "Spain": "Europe",
+        "Portugal": "Europe",
+        "Netherlands": "Europe",
+        "Ireland": "Europe",
+        "Japan": "Asia",
+        "South Korea": "Asia",
+        "Singapore": "Asia",
+        "Thailand": "Asia",
+        "India": "Asia",
+        "United Arab Emirates": "Asia",
+        "South Africa": "Africa",
+        "Kenya": "Africa",
+        "Egypt": "Africa",
+    }
+    return regions.get(country, "Unknown")
+
+
+def _extract_country(urban_area_payload: dict[str, Any]) -> str:
+    countries = urban_area_payload.get("_links", {}).get("ua:countries", [])
+    if countries:
+        return countries[0].get("name") or "Unknown"
+    return "Unknown"
+
+
+def collect_teleport_metrics(
+    limit: int,
+    base_url: str = "https://api.teleport.org/api",
+    timeout_seconds: float = 20,
+) -> list[CityMetric]:
+    """Collect live city quality metrics from Teleport's public urban areas API."""
+    base_url = base_url.rstrip("/")
+    scraped_at = datetime.now(UTC)
+    metrics: list[CityMetric] = []
+
+    try:
+        with httpx.Client(timeout=timeout_seconds, follow_redirects=True) as client:
+            urban_areas = client.get(f"{base_url}/urban_areas/").raise_for_status().json()
+            items = urban_areas.get("_links", {}).get("ua:item", [])[:limit]
+
+            for item in items:
+                name = item["name"]
+                href = item["href"]
+                slug = _city_slug_from_href(href)
+                details = client.get(f"{base_url}/urban_areas/slug:{slug}/").raise_for_status().json()
+                score_payload = (
+                    client.get(f"{base_url}/urban_areas/slug:{slug}/scores/")
+                    .raise_for_status()
+                    .json()
+                )
+                scores = _score_map(score_payload.get("categories", []))
+                country = _extract_country(details)
+                quality_score = float(score_payload.get("teleport_city_score") or 50)
+                internet_score = _score(scores, "Internet Access")
+                startup_score = round(
+                    (
+                        _score(scores, "Startups")
+                        + _score(scores, "Venture Capital")
+                        + _score(scores, "Business Freedom")
+                    )
+                    / 3
+                    * 10,
+                    2,
+                )
+                cost_index = _category_to_cost_index(_score(scores, "Cost of Living"))
+                rent_index = _category_to_cost_index(_score(scores, "Housing"))
+                safety_index = _category_to_positive_index(_score(scores, "Safety"))
+                healthcare_index = _category_to_positive_index(_score(scores, "Healthcare"))
+                climate_index = _category_to_positive_index(_score(scores, "Environmental Quality"))
+                remote_work_score = round(
+                    ((130 - cost_index) / 130 * 30)
+                    + (quality_score / 100 * 25)
+                    + (internet_score / 10 * 25)
+                    + (safety_index / 100 * 20),
+                    2,
+                )
+
+                metrics.append(
+                    CityMetric(
+                        city=name,
+                        country=country,
+                        region=_fallback_region(country),
+                        cost_of_living_index=cost_index,
+                        rent_index=rent_index,
+                        groceries_index=cost_index,
+                        restaurant_price_index=cost_index,
+                        purchasing_power_index=_category_to_positive_index(
+                            _score(scores, "Economy"), 180
+                        ),
+                        quality_of_life_index=round(quality_score * 2.2, 2),
+                        safety_index=safety_index,
+                        healthcare_index=healthcare_index,
+                        climate_index=climate_index,
+                        internet_speed_mbps=round(internet_score * 25, 2),
+                        startup_score=min(startup_score, 100),
+                        remote_work_score=min(remote_work_score, 100),
+                        scraped_at=scraped_at,
+                        source="teleport_api",
+                    )
+                )
+    except httpx.HTTPError as exc:
+        raise RuntimeError(f"Teleport API request failed: {exc}") from exc
 
     return metrics
 

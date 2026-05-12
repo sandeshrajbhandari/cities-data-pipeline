@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, Query
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
@@ -43,15 +43,22 @@ def dashboard() -> HTMLResponse:
 @app.post("/pipeline/run")
 def trigger_pipeline(
     limit: int = Query(default=220, ge=1, le=1000),
+    source: str = Query(default="demo", pattern="^(demo|teleport)$"),
     settings: Settings = Depends(get_settings),
     warehouse: CityWarehouse = Depends(get_warehouse),
 ) -> dict:
-    metrics, recommendations, exports = run_pipeline(
-        warehouse=warehouse,
-        city_limit=limit,
-        export_dir=settings.export_dir,
-    )
+    try:
+        metrics, recommendations, exports = run_pipeline(
+            warehouse=warehouse,
+            city_limit=limit,
+            export_dir=settings.export_dir,
+            source=source,
+            teleport_api_base_url=settings.teleport_api_base_url,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     return {
+        "source": source,
         "loaded_metrics": len(metrics),
         "loaded_recommendations": len(recommendations),
         "exports": {name: str(path) for name, path in exports.items()},

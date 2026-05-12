@@ -29,7 +29,7 @@ class CityMetric(BaseModel):
     startup_score: float = Field(ge=0, le=100)
     remote_work_score: float = Field(ge=0, le=100)
     scraped_at: datetime
-    source: Literal["demo_collector", "html_scraper"] = "demo_collector"
+    source: Literal["demo_collector", "html_scraper", "teleport_api"] = "demo_collector"
 
 
 class CityRecommendation(BaseModel):

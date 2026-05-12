@@ -10,6 +10,7 @@ This repo now contains a working MVP for the Startup City Data Pipeline project.
 - Local SQLite warehouse at `data/cities.sqlite3`.
 - CSV exports for dashboarding at `exports/city_metrics.csv` and `exports/city_recommendations.csv`.
 - Screenshot-friendly dashboard at `/dashboard`.
+- Live Teleport source mode for public urban-area quality-of-life scores.
 - Power BI model notes in `docs/powerbi_model.md`.
 - Snowflake starter schema in `sql/snowflake_schema.sql`.
 - Docker, docker-compose, Makefile, tests, linting, and GitHub Actions CI.
@@ -19,7 +20,7 @@ This repo now contains a working MVP for the Startup City Data Pipeline project.
 ```mermaid
 flowchart LR
     catalog["City Catalog<br/>220 default cities"]
-    collector["Demo Collector<br/>synthetic stable metrics"]
+    collector["Collectors<br/>demo + Teleport live API"]
     transform["Transform Layer<br/>scoring models"]
     warehouse["SQLite Warehouse<br/>city_metrics<br/>city_recommendations"]
     exports["CSV Exports<br/>Power BI-ready files"]
@@ -48,7 +49,7 @@ sequenceDiagram
 
     User->>API: POST /pipeline/run?limit=220
     API->>Runner: run_pipeline()
-    Runner->>Collector: collect_demo_metrics(cities)
+    Runner->>Collector: collect_demo_metrics() or collect_teleport_metrics()
     Collector-->>Runner: raw city metrics
     Runner->>Transform: build_recommendations(metrics)
     Transform-->>Runner: scored recommendations
@@ -112,12 +113,19 @@ Useful local URLs:
 
 ## Next Steps: Azure, Power BI, and Cloud
 
-### 1. Replace Demo Collector With Real Sources
+### 1. Expand Real Data Sources
 
-- Add source adapters under `app/pipeline/sources/`.
+- Teleport is now integrated as the first real public data source.
+- Keep expanding source adapters under `app/pipeline/`.
 - Use public APIs, downloadable datasets, or compliant scraping targets.
 - Store source metadata, scrape timestamp, and raw payload references.
 - Add retry/backoff and source-specific validation.
+
+Current live source:
+
+- Teleport urban areas list: `https://api.teleport.org/api/urban_areas/`
+- Teleport urban-area scores: `https://api.teleport.org/api/urban_areas/slug:{slug}/scores/`
+- Local run command: `python -m app.cli --source teleport --limit 50`
 
 Target shape:
 
